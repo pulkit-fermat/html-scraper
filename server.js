@@ -9,13 +9,21 @@ const PORT = 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
+async function getBrowser() {
+  let options = { headless: 'new' };
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  return puppeteer.launch(options);
+}
+
 app.post('/scrape', async (req, res) => {
   const { url } = req.body;
 
   if (!url) return res.status(400).json({ error: 'Missing URL' });
 
   try {
-    const browser = await puppeteer.launch({ headless: 'new' });
+    const browser = await getBrowser();
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
     await new Promise(resolve => setTimeout(resolve, 2000));
