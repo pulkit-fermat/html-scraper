@@ -1,6 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright');
 const cors = require('cors');
 
 const app = express();
@@ -9,24 +9,17 @@ const PORT = 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-async function getBrowser() {
-  let options = { headless: 'new' };
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
-  return puppeteer.launch(options);
-}
-
 app.post('/scrape', async (req, res) => {
   const { url } = req.body;
 
   if (!url) return res.status(400).json({ error: 'Missing URL' });
 
+  let browser;
   try {
-    const browser = await getBrowser();
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
+    await page.waitForTimeout(2000);
     const html = await page.content();
     await browser.close();
 
@@ -43,6 +36,7 @@ app.post('/scrape', async (req, res) => {
 
     res.json(result);
   } catch (err) {
+    if (browser) await browser.close();
     console.error('Scraping error:', err.message);
     res.status(500).json({ error: 'Scraping failed' });
   }
